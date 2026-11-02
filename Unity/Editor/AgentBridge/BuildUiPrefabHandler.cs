@@ -20,6 +20,7 @@ namespace ImageToUI.Editor
         {
             if (EditorApplication.isPlayingOrWillChangePlaymode) throw new CommandException("UI_EDIT_MODE_REQUIRED", "Generate UI prefabs in Edit Mode.");
             try { return Task.FromResult<object>(UiPrefabBuilder.Build(parameters)); }
+            catch (UiPrefabBuildException ex) { throw new CommandException(ex.Code, ex.Message); }
             catch (CommandException) { throw; }
             catch (JsonException ex) { throw new CommandException("UI_INVALID_STRUCTURE", ex.Message); }
             catch (ArgumentException ex) { throw new CommandException("UI_INVALID_STRUCTURE", ex.Message); }

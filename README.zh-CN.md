@@ -5,6 +5,19 @@
 使用 Codex 将 UI 效果图和切图转换为经过复核的 `ui_structure.json`，再通过
 UnityAgentBridge 组装成 Unity UGUI Prefab。分析、校验与导入在同一项任务中连续完成。
 
+也支持 CoplayDev 的 `unity-mcp`。先在 Unity 安装 `unity-mcp` 和本仓库的 `Unity/` 包，
+完成同样的 prepare、结构编写、check 和 finalize 后运行：
+
+```bash
+python -B image-to-ui/scripts/workspace.py build-requests --backend mcp --manifest ui_workspace.json --project hund --page market
+```
+
+打开生成的 `workspace_mcp_build_requests.json`，确认 `unityProject` 对应当前连接的 Unity 工程。
+让 Codex 读取 MCP 的 `mcpforunity://custom-tools`，确认存在 `image_to_ui_build_prefab`，
+然后把该页面的 `params` 交给这个工具。工具仅在 Edit Mode 构建 Prefab，默认拒绝覆盖已有目标。
+`assetsPath` 在 MCP 工具中传一个目录；共享素材可放在这个目录的子目录中。
+详细安装和参数见 [Unity 导入器参考](Unity/README.md#使用-unity-mcp)。
+
 生成的 Prefab 使用原生 UGUI 组件和素材。不同状态完整保存在显隐分组中，
 默认只激活当前状态；业务控制由开发者实现，没有自定义运行时脚本依赖。
 

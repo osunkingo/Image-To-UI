@@ -441,8 +441,10 @@ def run_workflow_pages(pages: list[Page], command: str, runner=None) -> list[dic
     return results
 
 
-def build_requests(pages: list[Page]) -> tuple[list[dict[str, Any]], list[str]]:
-    """Emit only fresh, complete, non-overwriting single-flight Bridge requests."""
+def build_requests(pages: list[Page], backend: str = "bridge") -> tuple[list[dict[str, Any]], list[str]]:
+    """Emit fresh, complete, non-overwriting requests for the selected Unity backend."""
+    if backend not in ("bridge", "mcp"):
+        raise WorkspaceError(f"Unknown Unity backend: {backend}")
     requests: list[dict[str, Any]] = []
     issues: list[str] = []
     multi_project = len({page.project_id for page in pages}) > 1
@@ -473,13 +475,15 @@ def build_requests(pages: list[Page]) -> tuple[list[dict[str, Any]], list[str]]:
             if page.unity_project is not None and (page.unity_project / page.prefab_path).exists():
                 issues.append(f"{label}: Prefab already exists: {page.unity_project / page.prefab_path}")
                 continue
-            requests.append({"project": page.project_id, "page": page.id,
-                             "unityProject": str(page.unity_project) if page.unity_project else None,
-                             "command": "build_ui_prefab", "params": {
-                                 "structurePath": str(structure_path),
-                                 "assetsPath": str(page.asset_root),
-                                 "prefabPath": page.prefab_path,
-                                 "overwrite": False}})
+            request = {"project": page.project_id, "page": page.id,
+                       "unityProject": str(page.unity_project) if page.unity_project else None,
+                       "params": {"structurePath": str(structure_path),
+                                  "assetsPath": str(page.asset_root),
+                                  "prefabPath": page.prefab_path,
+                                  "overwrite": False}}
+            request["command" if backend == "bridge" else "tool"] = (
+                "build_ui_prefab" if backend == "bridge" else "image_to_ui_build_prefab")
+            requests.append(request)
         except (OSError, json.JSONDecodeError, WorkspaceError) as exc:
             issues.append(f"{label}: cannot prepare build request: {exc}")
     return requests, issues
@@ -492,6 +496,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--project")
     parser.add_argument("--page")
     parser.add_argument("--output", type=Path, help="Overview, report, or request file; defaults beside manifest")
+    parser.add_argument("--backend", choices=("bridge", "mcp"), default="bridge",
+                        help="Unity build request backend (build-requests only)")
     args = parser.parse_args(argv)
     try:
         workspace = load_workspace(args.manifest)
@@ -510,9 +516,10 @@ def main(argv: list[str] | None = None) -> int:
             output.write_text(json.dumps(result, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
             result["reportPath"] = str(output)
         else:
-            requests, issues = build_requests(pages)
+            requests, issues = build_requests(pages, backend=args.backend)
             result = {"requests": requests, "issues": issues}
-            output = (args.output or workspace.manifest.parent / "workspace_build_requests.json").resolve()
+            default_name = "workspace_mcp_build_requests.json" if args.backend == "mcp" else "workspace_build_requests.json"
+            output = (args.output or workspace.manifest.parent / default_name).resolve()
             output.parent.mkdir(parents=True, exist_ok=True)
             output.write_text(json.dumps(result, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
             result["requestPath"] = str(output)

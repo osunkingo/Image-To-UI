@@ -1,10 +1,12 @@
 {
   "name": "ImageToUI.Tests",
   "rootNamespace": "ImageToUI.Tests",
-  "references": ["ImageToUI.Editor", "AgentBridge.Editor", "Unity.ugui"],
+  "references": ["ImageToUI.Editor", "ImageToUI.AgentBridge", "AgentBridge.Editor", "Unity.ugui"],
   "includePlatforms": ["Editor"],
   "overrideReferences": true,
   "precompiledReferences": ["Newtonsoft.Json.dll"],
   "autoReferenced": false,
-  "optionalUnityReferences": ["TestAssemblies"]
+  "optionalUnityReferences": ["TestAssemblies"],
+  "versionDefines": [{"name": "me.xw.unityagentbridge", "expression": "2.0.0", "define": "IMAGE_TO_UI_HAS_AGENT_BRIDGE"}],
+  "defineConstraints": ["IMAGE_TO_UI_HAS_AGENT_BRIDGE"]
 }

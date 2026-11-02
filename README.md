@@ -6,6 +6,13 @@ Use Codex to turn a UI design and sliced assets into reviewed `ui_structure.json
 then assemble a Unity UGUI Prefab through UnityAgentBridge. Analysis, validation,
 and export run as one continuous task.
 
+CoplayDev `unity-mcp` is also supported. Install `unity-mcp` and this repository's
+`Unity/` package in the target project, finish the same analysis and finalization,
+then generate MCP requests with `workspace.py build-requests --backend mcp`.
+Confirm the connected Unity project and discover `image_to_ui_build_prefab` in
+`mcpforunity://custom-tools` before sending each request's `params`. Existing
+Prefab targets are skipped; see [Unity MCP setup](Unity/README.md#使用-unity-mcp).
+
 The Prefab uses native UGUI components and generated assets. All declared states
 are preserved as visibility branches, with only the current state active.
 Developers own application control; no custom runtime scripts are generated.

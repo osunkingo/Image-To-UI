@@ -2,6 +2,7 @@
 
 这是一个仅包含 Editor 代码的 Unity UPM 包。安装后，UnityAgentBridge 自动发现
 `build_ui_prefab`，把 `ui_structure.json` 与切图组装成使用标准 UGUI 组件的 Prefab。
+也可以只安装 CoplayDev 的 `unity-mcp`，调用 `image_to_ui_build_prefab`；两个入口使用同一构建器。
 
 **生成物没有自定义运行时脚本、运行时 JSON 解析器或导入器资源表依赖。**
 显隐状态会成为实际的 GameObject 分组，默认只激活当前状态。业务控制由开发者实现。
@@ -25,6 +26,42 @@
 `test/output/ui_structure.json`；已有 JSON 时，Unity 导入器本身无需调用 Python。
 
 ## 安装
+
+### 使用 unity-mcp
+
+在目标 Unity 工程安装 `com.coplaydev.unity-mcp` 和本仓库的 `Unity/` 包，等待编译完成。
+开发本仓库时，可在 Package Manager 通过 **Add package from disk** 选择本仓库
+`Unity/package.json`；正式项目可使用下面的 Git URL：
+
+```text
+https://github.com/XuToWei/Image-To-UI.git?path=Unity
+```
+
+连接 Unity MCP 后读取 `mcpforunity://project/info` 核对目标工程，再读取
+`mcpforunity://custom-tools`，确认 `image_to_ui_build_prefab` 已注册。
+先完成 `ui_structure.json` 的 check 和 finalize，然后调用：
+
+```json
+{
+  "tool_name": "image_to_ui_build_prefab",
+  "parameters": {
+    "structurePath": "<repo>/hund/output-local/ui_structure.json",
+    "assetsPath": "<repo>/hund/source/sprites",
+    "prefabPath": "Assets/Generated/MarketUI.prefab",
+    "overwrite": false
+  }
+}
+```
+
+可用 `image-to-ui/scripts/workspace.py build-requests --backend mcp --manifest ui_workspace.json`
+生成已完成页面的请求清单 `workspace_mcp_build_requests.json`。该命令不会自己调用 Unity；
+每条请求的 `params` 对应 MCP 自定义工具的 `parameters`。目标 Prefab 已存在时，
+工作区会跳过请求；直接调用工具也会返回 `UI_PREFAB_EXISTS`，除非显式允许覆盖。
+MCP 工具的 `assetsPath` 是一个目录；请将共同素材和页面素材放在它的子目录中。
+构建后检查返回的 `prefabPath`、`resourceUsage`、`stateObjects` 和 `warnings`，
+再在 Unity 中打开 Prefab，核对布局与引用。功能按钮和数据绑定仍由游戏代码接入。
+
+### 使用 UnityAgentBridge
 
 通过 GitHub 安装，确保本机已安装 Git 且 Unity 能调用它。
 本仓库地址为 `https://github.com/XuToWei/Image-To-UI.git`，Unity 包位于

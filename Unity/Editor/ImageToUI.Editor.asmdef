@@ -1,7 +1,7 @@
 {
   "name": "ImageToUI.Editor",
   "rootNamespace": "ImageToUI.Editor",
-  "references": ["Unity.ugui", "AgentBridge.Editor"],
+  "references": ["Unity.ugui"],
   "includePlatforms": ["Editor"],
   "overrideReferences": true,
   "precompiledReferences": ["Newtonsoft.Json.dll"],

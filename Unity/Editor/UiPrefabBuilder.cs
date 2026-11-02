@@ -5,7 +5,6 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
-using AgentBridge;
 using Newtonsoft.Json.Linq;
 using UnityEditor;
 using UnityEditor.SceneManagement;
@@ -32,7 +31,7 @@ namespace ImageToUI.Editor
                 throw new ArgumentException("Device safe-area updates belong to application code; the exporter bakes canvas.safeArea.");
             var existing = AssetDatabase.LoadMainAssetAtPath(prefabPath);
             var prefabFull = InputPath(prefabPath);
-            if (File.Exists(prefabFull) && !overwrite) throw new CommandException("UI_PREFAB_EXISTS", "Prefab exists; pass overwrite=true to replace it: " + prefabPath);
+            if (File.Exists(prefabFull) && !overwrite) throw new UiPrefabBuildException("UI_PREFAB_EXISTS", "Prefab exists; pass overwrite=true to replace it: " + prefabPath);
             if (existing != null && (!(existing is GameObject) || !PrefabUtility.IsPartOfPrefabAsset(existing))) throw new ArgumentException("Target is not a prefab asset");
             var json = File.ReadAllText(structurePath, Encoding.UTF8);
             var document = new UiStructureData(json);

@@ -1,0 +1,12 @@
+{
+  "name": "ImageToUI.McpTests",
+  "rootNamespace": "ImageToUI.Tests",
+  "references": ["ImageToUI.Editor", "ImageToUI.Mcp", "MCPForUnity.Editor"],
+  "includePlatforms": ["Editor"],
+  "overrideReferences": true,
+  "precompiledReferences": ["Newtonsoft.Json.dll"],
+  "autoReferenced": false,
+  "optionalUnityReferences": ["TestAssemblies"],
+  "versionDefines": [{"name": "com.coplaydev.unity-mcp", "expression": "10.0.0", "define": "IMAGE_TO_UI_HAS_UNITY_MCP"}],
+  "defineConstraints": ["IMAGE_TO_UI_HAS_UNITY_MCP"]
+}

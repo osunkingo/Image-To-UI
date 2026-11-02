@@ -1,0 +1,11 @@
+{
+  "name": "ImageToUI.Mcp",
+  "rootNamespace": "ImageToUI.Editor",
+  "references": ["ImageToUI.Editor", "MCPForUnity.Editor"],
+  "includePlatforms": ["Editor"],
+  "overrideReferences": true,
+  "precompiledReferences": ["Newtonsoft.Json.dll"],
+  "autoReferenced": true,
+  "versionDefines": [{"name": "com.coplaydev.unity-mcp", "expression": "10.0.0", "define": "IMAGE_TO_UI_HAS_UNITY_MCP"}],
+  "defineConstraints": ["IMAGE_TO_UI_HAS_UNITY_MCP"]
+}

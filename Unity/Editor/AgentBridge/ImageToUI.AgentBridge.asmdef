@@ -1,0 +1,11 @@
+{
+  "name": "ImageToUI.AgentBridge",
+  "rootNamespace": "ImageToUI.Editor",
+  "references": ["ImageToUI.Editor", "AgentBridge.Editor"],
+  "includePlatforms": ["Editor"],
+  "overrideReferences": true,
+  "precompiledReferences": ["Newtonsoft.Json.dll"],
+  "autoReferenced": true,
+  "versionDefines": [{"name": "me.xw.unityagentbridge", "expression": "2.0.0", "define": "IMAGE_TO_UI_HAS_AGENT_BRIDGE"}],
+  "defineConstraints": ["IMAGE_TO_UI_HAS_AGENT_BRIDGE"]
+}
