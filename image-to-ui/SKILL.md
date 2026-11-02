@@ -13,6 +13,18 @@ debugging the skill itself.
 
 ## Inputs and task folder
 
+For multiple games or pages, use the opt-in workspace coordinator in
+`scripts/workspace.py` and a version-1 `ui_workspace.json` (see the repository
+`examples/ui_workspace.example.json`). It selects a separate output and
+page-scoped asset view for each design, then runs this same single-page
+prepare/check/finalize protocol. Run `overview` first to inspect all selected
+designs on one labeled sheet. Use `report` to check functional handoff
+paths and exact-byte shared-asset candidates; use `build-requests` to emit
+non-overwriting Unity build requests. Cross-project build queues require each
+project's `unityProject`; verify the active Editor matches each request before
+sending it. The workspace layer does not replace
+the per-page `ui_structure.json`, visual review, or Bridge discovery.
+
 Require:
 
 - a PNG/JPG design at native resolution;

@@ -8,6 +8,216 @@ UnityAgentBridge 组装成 Unity UGUI Prefab。分析、校验与导入在同一
 生成的 Prefab 使用原生 UGUI 组件和素材。不同状态完整保存在显隐分组中，
 默认只激活当前状态；业务控制由开发者实现，没有自定义运行时脚本依赖。
 
+## 多项目与多页面工作区
+
+多个游戏、多个页面使用一个 `ui_workspace.json` 管理；每页仍独立分析、复核并生成一个 Prefab。单页面命令继续可用。以下命令均在**仓库根目录**执行，使用 Python 3.10+；首次运行先安装 `python -m pip install pillow numpy`。
+
+### 从你的 `market` 页面开始：最小可运行示例
+
+先只配置**一个游戏、一个页面**。在本仓库根目录新建 `ui_workspace.json`，把下面内容完整复制进去：
+
+```json
+{
+  "version": 1,
+  "projects": [
+    {
+      "id": "hund",
+      "assetRoot": "hund/source/sprites",
+      "unityProject": "/Volumes/work/myself/testui",
+      "commonAssetDirs": [],
+      "pages": [
+        {
+          "id": "market",
+          "design": "hund/source/design/market.png",
+          "assetDirs": ["Backgrounds", "Cells", "Buttons", "Icons", "Decorations", "Sprites"],
+          "output": "hund/output-workspace/market",
+          "prefabPath": "Assets/Generated/MarketUI.prefab"
+        }
+      ]
+    }
+  ]
+}
+```
+
+这里的 `assetRoot` 是切图总目录，`assetDirs` 是它下面允许本页使用的子目录；`output` 是新建的分析结果目录，不是切图目录。`unityProject` 指向现有 Unity 工程，`prefabPath` 是**工程内**将要创建的文件。你现有的 `Assets/Generated/EmberfallMainUI.prefab` 已存在，因此示例改用 `MarketUI.prefab`；若该文件以后也存在，请换一个新名字，工作区不会覆盖它。示例中的路径是本机路径；换电脑时需修改 `unityProject`。
+
+接着在仓库根目录依次运行：
+
+```bash
+python -B image-to-ui/scripts/workspace.py validate --manifest ui_workspace.json
+python -B image-to-ui/scripts/workspace.py overview --manifest ui_workspace.json
+python -B image-to-ui/scripts/workspace.py prepare --manifest ui_workspace.json --project hund --page market
+```
+
+第一条应显示 `"valid": true`；第二条生成 `workspace_overview.png`，此时只有一页；第三条在 `hund/output-workspace/market/` 生成效果图网格、切图清单和素材预览。**到这里还没有 `ui_structure.json` 或 Prefab**：下一步需要让 Codex 按 [`image-to-ui/SKILL.md`](image-to-ui/SKILL.md) 测量效果图、编写 `hund/output-workspace/market/ui_structure.json`。你可以直接交代：“使用当前仓库的 image-to-ui Skill，基于 `ui_workspace.json` 的 `hund/market` 页面和 prepare 产物生成结构，完成 check、视觉复核与 finalize。”
+
+结构写好后，运行下面的检查；每次调整结构后重新运行 `check`，在 `comparison.png` 中与原图对照，再完成 Skill 要求的复核文件：
+
+```bash
+python -B image-to-ui/scripts/workspace.py check --manifest ui_workspace.json --project hund --page market
+python -B image-to-ui/scripts/workspace.py finalize --manifest ui_workspace.json --project hund --page market
+python -B image-to-ui/scripts/workspace.py build-requests --manifest ui_workspace.json --project hund --page market
+```
+
+确认 `hund/output-workspace/market/completion_report.json` 中 `"complete": true`。最后一条只生成 `workspace_build_requests.json`，**不会自己打开 Unity 或创建 Prefab**；让 Codex 按 UnityAgentBridge 的 `AGENT.md` 和 `list_commands` 核实 `build_ui_prefab`，并将请求发送给当前打开的 `/Volumes/work/myself/testui`。在 Unity 中查看新 Prefab 的布局与素材引用。若之前已完成的 `hund/output-local` 想继续使用，请保持原来的单页面流程；不要把它当成新工作区的输出目录重复执行 `prepare`。
+
+### 同一个游戏新增功能界面：例如背包
+
+如果市场和背包是**两个独立界面**，仍然使用同一个 `hund` 项目和同一个 Unity 工程。先准备新的 `hund/source/design/inventory.png`，并把背包专用切图放进新目录 `hund/source/sprites/Inventory/`。然后只在 `hund` 项目的 `pages` 数组中，紧跟 `market` 页面后追加下面这个页面对象；两个页面对象之间加逗号：
+
+```json
+{
+  "id": "inventory",
+  "design": "hund/source/design/inventory.png",
+  "assetDirs": ["Inventory"],
+  "output": "hund/output-workspace/inventory",
+  "prefabPath": "Assets/Generated/InventoryUI.prefab"
+}
+```
+
+这里**不新增 `projects` 对象**，也不用再填一次 `unityProject`。`market` 和 `inventory` 分别有自己的设计图、分析输出和 Prefab。准备好文件后运行：
+
+```bash
+python -B image-to-ui/scripts/workspace.py validate --manifest ui_workspace.json
+python -B image-to-ui/scripts/workspace.py overview --manifest ui_workspace.json --project hund
+python -B image-to-ui/scripts/workspace.py prepare --manifest ui_workspace.json --project hund --page inventory
+```
+
+接下来只为 `inventory` 编写 `ui_structure.json`，执行 `check`、视觉复核和 `finalize`，最后用 `build-requests --manifest ui_workspace.json --project hund --page inventory` 生成它的 Unity 导出请求。`--page inventory` 不会重新处理已完成的 `market`。如果两个页面要用同一张图标，先人工确认它们确实应共用，再放到 `hund/source/sprites/Common/`，把 `hund` 的 `commonAssetDirs` 设为 `["Common"]` 并更新两个页面的结构引用。素材变更后，要对受影响页面重新运行 `prepare`、`check`、复核和 `finalize`。
+
+如果所谓“功能项”只是**现有市场页面中的一个新按钮或数值**，不需要新增页面。修改 `market` 的 `ui_structure.json` 添加对应节点，并在 `market` 页的 `functional` 中配置按钮动作或文字数据键；若按钮打开背包，再配置 `navigation` 指向 `inventory`。之后对 `market` 重新 `check`、复核、`finalize`。游戏运行时代码仍需连接点击事件、数据和页面切换，详见下方“处理公共素材和功能 UI”。
+
+### 再建一个游戏项目：`newgame`
+
+如果是**另一款游戏、另一个 Unity 工程**，先在 Unity Hub 创建或打开新工程，确认工程内有 `Assets/`，并按下文“准备环境并安装 Unity 包”安装 UnityAgentBridge 与 Image-To-UI。把这款游戏的效果图和独立切图放在自己的目录，例如：
+
+```text
+newgame/
+  source/design/home.png
+  source/sprites/Buttons/start.png
+  source/sprites/Icons/logo.png
+```
+
+打开已有的 `ui_workspace.json`，**保留 `hund` 项目**，在 `projects` 数组中追加下面这个对象，与 `hund` 对象同级；两个对象之间要有逗号。请把 `unityProject` 改成新工程的真实绝对路径，并按实际文件夹名称修改其他路径：
+
+```json
+{
+  "id": "newgame",
+  "assetRoot": "newgame/source/sprites",
+  "unityProject": "/absolute/path/to/newgame-unity",
+  "commonAssetDirs": [],
+  "pages": [
+    {
+      "id": "home",
+      "design": "newgame/source/design/home.png",
+      "assetDirs": ["Buttons", "Icons"],
+      "output": "newgame/output-local/home",
+      "prefabPath": "Assets/Generated/HomeUI.prefab"
+    }
+  ]
+}
+```
+
+配置完成后先运行 `validate`，它会立即指出不存在的图片、切图目录或 Unity 工程。下面的命令只准备新游戏的 `home` 页面，不会重新处理 `hund`：
+
+```bash
+python -B image-to-ui/scripts/workspace.py validate --manifest ui_workspace.json
+python -B image-to-ui/scripts/workspace.py overview --manifest ui_workspace.json
+python -B image-to-ui/scripts/workspace.py prepare --manifest ui_workspace.json --project newgame --page home
+```
+
+`overview` 会同时显示两个游戏的设计图；想只看新游戏，加 `--project newgame`。之后按上一节对 `home` 页面生成结构、执行 `check` 与 `finalize`。导出时使用 `build-requests --manifest ui_workspace.json --project newgame`，先确认 Unity 当前打开的是 `newgame` 的工程，再发送请求。`hund` 和 `newgame` 的分析输出与 Prefab 分别属于各自工程；同一游戏内可整理公共素材，不会把不同游戏的切图自动合并。
+
+### 1. 准备效果图、切图和清单
+
+建议按游戏、页面整理输入。切图必须是独立 PNG，只有一张扁平效果图时，要先切出素材；`prepare` 不会替你从效果图自动拆图。
+
+```text
+games/
+  emberfall/
+    designs/market.png
+    designs/inventory.png
+    sprites/Common/frame.png
+    sprites/Pages/market/buy.png
+    sprites/Pages/inventory/slot.png
+  second_game/
+    designs/home.png
+    sprites/Common/frame.png
+```
+
+复制 [`examples/ui_workspace.example.json`](examples/ui_workspace.example.json) 为仓库根目录的 `ui_workspace.json`，然后替换其中的示例路径。示例为了演示结构重复使用了同一张测试图；实际每页应有自己的效果图。关键字段如下：
+
+| 字段 | 填写方式 |
+| --- | --- |
+| `projects[].id` | 游戏标识，同一清单内唯一。 |
+| `assetRoot` | 该游戏的切图根目录；里面至少有一个所选目录和 PNG。 |
+| `unityProject` | Unity 工程路径，目录内有 `Assets/`；跨项目批量导出时每个游戏都必须填写。 |
+| `commonAssetDirs` | 本游戏所有页面都可用的素材目录，例如 `Common`；相对于 `assetRoot`。 |
+| `pages[].id`、`design` | 页面标识及其原始效果图。 |
+| `assetDirs` | 本页专用的素材目录，例如 `Pages/market`；相对于 `assetRoot`。 |
+| `output` | 本页独立的分析输出目录，不要和其他页面共用。 |
+| `prefabPath` | Unity 工程内以 `Assets/` 开头、以 `.prefab` 结尾的唯一目标路径。 |
+
+除素材目录项外，清单中的相对路径均以**清单所在目录**为基准。结构文件里的资源名保留相对切图根目录的完整路径，例如 `Common/frame.png`、`Pages/market/buy.png`。新增页面就往所属项目的 `pages` 数组加一项；新增游戏就在 `projects` 数组加一项。
+
+### 2. 先看所有页面，再准备各页面
+
+```bash
+python -B image-to-ui/scripts/workspace.py validate --manifest ui_workspace.json
+python -B image-to-ui/scripts/workspace.py overview --manifest ui_workspace.json
+python -B image-to-ui/scripts/workspace.py prepare --manifest ui_workspace.json --project emberfall
+```
+
+`validate` 检查路径、页面 ID、输出目录和 Prefab 目标冲突。`overview` 在清单旁生成 `workspace_overview.png` 和 `workspace_overview.json`，把所选效果图并排展示。`prepare` 对 `emberfall` 的每页分别建立素材视图、分析素材并输出测量网格；只处理一页时追加 `--page market`，不加 `--project` 则处理全部游戏。素材视图位于 `.image-to-ui-cache/`，原始 PNG 不会被移动。
+
+### 3. 逐页编写结构并验收
+
+`prepare` **不会生成** `ui_structure.json`。按照 [`image-to-ui/SKILL.md`](image-to-ui/SKILL.md)，查看每页输出中的 `design_grid.png`、素材清单和接触表，为每页编写自己的 `ui_structure.json`。然后逐页运行：
+
+```bash
+python -B image-to-ui/scripts/workspace.py check --manifest ui_workspace.json --project emberfall --page market
+```
+
+检查该页的 `comparison.png`、`reconstruction.png`、`all_elements.png` 和风险预览；修正位置、尺寸、层级、锚点、字体、素材后再次 `check`。状态、进度和滚动写在该页结构中，并按 Skill 的 `preview` 流程检查不同状态与尺寸。完成 `alignment_review.md` 和适用的 `component_review.md` 后运行：
+
+```bash
+python -B image-to-ui/scripts/workspace.py finalize --manifest ui_workspace.json --project emberfall --page market
+```
+
+只有该页 `completion_report.json` 的 `complete` 为 `true`，且结构文件此后未变，才可以导出。`check`、`finalize` 也能按项目批量运行，但每页的结构和人工复核仍需分别完成；批量结果会逐页显示成功或失败。
+
+### 4. 处理公共素材和功能 UI
+
+先对照总览图识别外观相似的元素，再运行：
+
+```bash
+python -B image-to-ui/scripts/workspace.py report --manifest ui_workspace.json
+```
+
+`workspace_report.json` 列出每页状态、已引用素材和同一游戏中**文件内容完全相同**且被多个页面引用的候选。外观相近但文件不同的素材需要人工比较。确认可共用后，将其整理到该游戏的公共目录，更新各页面资源路径，并对受影响页面重新 `prepare`、`check`、复核、`finalize`。工作区不会自动合并或移动素材；不同游戏的资源也不会自动混用。
+
+页面清单可选填 `functional`：`actions` 将按钮路径关联动作 ID，`navigation` 将按钮路径关联**同一游戏**的目标页面 ID，`bindings` 将文字节点路径关联数据键。路径必须与 `ui_structure.json` 中的节点路径一致。`report` 会检查路径和节点类型，并在该页输出 `integration_contract.json`。例如：
+
+```json
+{
+  "functional": {
+    "actions": [{"id": "buy_item", "trigger": "root/shop/buy_button"}],
+    "navigation": [{"trigger": "root/shop/back_button", "to": "home"}],
+    "bindings": [{"target": "root/shop/price_text", "source": "shop.selectedItem.price"}]
+  }
+}
+```
+
+动作、数据读取、页面打开/关闭等业务逻辑由游戏运行时代码根据接入清单实现；Prefab 导出器不会从效果图推断业务规则。
+
+### 5. 生成 Unity Prefab
+
+```bash
+python -B image-to-ui/scripts/workspace.py build-requests --manifest ui_workspace.json --project emberfall
+```
+
+命令只写出 `workspace_build_requests.json`，**不会直接调用 Unity**。请求只包含已经完成且结构未变的页面，`overwrite` 固定为 `false`；已存在的目标 Prefab 会被跳过。让 Codex 读取 UnityAgentBridge 的 `AGENT.md`，通过 `list_commands` 确认 `build_ui_prefab` 可用，再核对当前打开的 Unity 工程与每条请求的 `unityProject`，逐条发送请求并在 Unity 中检查 Prefab、布局及素材引用。切换游戏时先切换对应 Unity 工程。公共素材放在 Unity `Assets/` 内且由各页面直接引用时可共享同一 Unity 资源；外部素材可能被复制进各 Prefab 的资源目录。
+
 ## 完整运行流程
 
 从效果图开始，把下面整条任务交给 Codex：生成结构、校验复核，再通过

@@ -103,6 +103,16 @@ Codex 完成本次 JSON 的分析与复核后，直接继续发出下面的 comm
 
 ### 多个切图目录
 
+多项目、多页面可先使用仓库的 `image-to-ui/scripts/workspace.py` 和
+`examples/ui_workspace.example.json` 管理独立的分析输出。其 `build-requests`
+生成逐页面的 `build_ui_prefab` 请求队列；Agent 仍须先实时执行
+`list_commands`，确认当前 Unity 工程与请求中的 `unityProject` 相同，
+再按 Bridge 的单请求协议逐条发送。跨项目批量请求要求每个项目填写
+`unityProject`。队列的 `overwrite` 固定为 `false`，配置工程路径时还会
+预先跳过已存在的目标。
+功能 UI 的动作、跳转和数据键写入各页面 `integration_contract.json`，由
+游戏运行时代码接入；本 Editor-only 导出命令不生成业务控制器。
+
 原来的单目录字符串仍然有效，也可直接传目录数组：
 
 ```json

@@ -5,6 +5,9 @@ __pycache__/
 
 # Local workflow runs
 /test/output-*/
+/.image-to-ui-cache/
+**/.image-to-ui-cache/
+/examples/output/
 
 # Keep only the compact, reviewable example in Git
 /test/output/*
@@ -14,3 +17,5 @@ __pycache__/
 !/test/output/state-review.png
 !/test/output/resolution-review.png
 !/test/output/component_review.md
+
+/hund

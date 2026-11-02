@@ -1,0 +1,45 @@
+{
+  "version": 1,
+  "projects": [
+    {
+      "id": "emberfall",
+      "assetRoot": "../test/source/sprites",
+      "commonAssetDirs": ["icons"],
+      "pages": [
+        {
+          "id": "home",
+          "design": "../test/source/design/emberfall-ui-mockup.png",
+          "assetDirs": ["backgrounds", "components", "quest-backgrounds"],
+          "output": "output/emberfall/home",
+          "prefabPath": "Assets/Generated/EmberfallHome.prefab",
+          "functional": {
+            "actions": [{"id": "enter_level", "trigger": "root/enter_button"}],
+            "bindings": [{"target": "root/quest_panel/title", "source": "quest.title"}],
+            "navigation": [{"trigger": "root/bottom_navigation/nav_buttons/equipment", "to": "equipment"}]
+          }
+        },
+        {
+          "id": "equipment",
+          "design": "../test/source/design/emberfall-ui-mockup.png",
+          "assetDirs": ["backgrounds", "components"],
+          "output": "output/emberfall/equipment",
+          "prefabPath": "Assets/Generated/EmberfallEquipment.prefab"
+        }
+      ]
+    },
+    {
+      "id": "second_game",
+      "assetRoot": "../test/source/sprites",
+      "commonAssetDirs": ["icons"],
+      "pages": [
+        {
+          "id": "home",
+          "design": "../test/source/design/emberfall-ui-mockup.png",
+          "assetDirs": ["backgrounds", "components"],
+          "output": "output/second_game/home",
+          "prefabPath": "Assets/Generated/SecondGameHome.prefab"
+        }
+      ]
+    }
+  ]
+}

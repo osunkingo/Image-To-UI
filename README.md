@@ -10,6 +10,35 @@ The Prefab uses native UGUI components and generated assets. All declared states
 are preserved as visibility branches, with only the current state active.
 Developers own application control; no custom runtime scripts are generated.
 
+## Multi-project, multi-page workspaces
+
+Use a versioned `ui_workspace.json` to coordinate several games and pages while keeping the original single-page workflow. See [`examples/ui_workspace.example.json`](examples/ui_workspace.example.json). Each project declares an asset root and common asset directories; each page declares its own design, local asset directories, output folder and Prefab path. Paths are relative to the manifest except asset directory entries, which are relative to `assetRoot`.
+
+```bash
+python -B image-to-ui/scripts/workspace.py validate --manifest ui_workspace.json
+python -B image-to-ui/scripts/workspace.py overview --manifest ui_workspace.json
+python -B image-to-ui/scripts/workspace.py prepare --manifest ui_workspace.json --project emberfall
+python -B image-to-ui/scripts/workspace.py check --manifest ui_workspace.json --project emberfall --page market
+python -B image-to-ui/scripts/workspace.py finalize --manifest ui_workspace.json --project emberfall --page market
+python -B image-to-ui/scripts/workspace.py report --manifest ui_workspace.json
+python -B image-to-ui/scripts/workspace.py build-requests --manifest ui_workspace.json
+```
+
+`overview` creates `workspace_overview.png` and a JSON page index beside the manifest, showing all selected designs together before decomposition. The coordinator runs the existing analysis workflow independently for each page. It builds a page-scoped symlink view of common and local art in `.image-to-ui-cache`. `report` identifies exact-byte shared assets referenced by multiple pages and validates optional functional contracts: button action IDs, button navigation targets, and text data keys. It writes `integration_contract.json` for developers; it does not infer gameplay behavior. States, progress and scroll still belong in each page's `ui_structure.json`.
+
+`build-requests` emits safe `build_ui_prefab` requests for completed pages only, never overwrites an existing Prefab, and leaves UnityAgentBridge transport to the agent. Each request identifies its Unity project; a cross-project batch requires `unityProject` for every selected project. Confirm the active Unity Editor matches that path before sending each request. Put truly shared Unity art under `Assets/` and reference it directly from each page; external art can be copied into each generated Prefab's resource folder. The sample manifest uses the repository's single test design in several illustrative slots; replace those paths with real page designs.
+
+### How to use a workspace
+
+1. Arrange each game's original design images and independent PNG sprites. A flat design image alone is insufficient for `prepare`: sprite extraction must happen first. Give each page its own design and output directory; place shared art in a project-level directory such as `sprites/Common` and page art in directories such as `sprites/Pages/market`.
+2. Copy [`examples/ui_workspace.example.json`](examples/ui_workspace.example.json) to `ui_workspace.json` at the repository root. Replace the illustrative image and sprite paths, add each game's `unityProject`, and give every page a unique `prefabPath`. Paths are relative to the manifest directory, except `commonAssetDirs` and `assetDirs`, which are relative to `assetRoot`. Add a page to its project's `pages` array; add a game to `projects`.
+3. Run `validate`, then `overview` to compare all page designs. Run `prepare` with `--project GAME` and optionally `--page PAGE`. Without a project filter, commands select all games. The coordinator creates a page-specific `.image-to-ui-cache` asset view without moving source sprites.
+4. For **each page**, write `ui_structure.json` in that page's `output` directory using the grid and asset inventory produced by `prepare`. `prepare` does not generate the structure. Run `check`, review `comparison.png`, `reconstruction.png`, element and risk views, and repeat after corrections. Preview alternate sizes, states, progress, and scroll where applicable. Complete `alignment_review.md` and any needed `component_review.md`, then run `finalize`. The page is exportable only when `completion_report.json` contains `"complete": true` and the structure has not changed since finalization. Follow [`image-to-ui/SKILL.md`](image-to-ui/SKILL.md) for the full review protocol.
+5. Run `report` to inspect `workspace_report.json`. It identifies assets with identical bytes used on multiple pages **within the same game**. Review visually similar files yourself; the tool does not merge them. After moving confirmed shared art into the common directory and updating references, rerun `prepare`, `check`, review, and `finalize` for affected pages.
+6. Run `build-requests` to write `workspace_build_requests.json`. This command does **not** call Unity. Read UnityAgentBridge's `AGENT.md`, confirm `build_ui_prefab` with `list_commands`, match the active Unity project to each request's `unityProject`, then send requests one at a time and inspect the resulting Prefabs. Existing Prefab targets are skipped and `overwrite` is always `false`.
+
+The optional page `functional` object maps button paths to action IDs (`actions`), button paths to page IDs in the same game (`navigation`), and text paths to data keys (`bindings`). `report` validates these paths against `ui_structure.json` and writes each page's `integration_contract.json`. Connect the behavior in your game's runtime code; the Prefab exporter does not implement game rules. See the [Chinese walkthrough](README.zh-CN.md#多项目与多页面工作区) for a field table and example contract.
+
 ## Complete workflow
 
 Give Codex the complete task: analyze the design, generate and review the
