@@ -1,8 +1,9 @@
 # Unity 导入器参考
 
-这是一个仅包含 Editor 代码的 Unity UPM 包。安装后，UnityAgentBridge 自动发现
-`build_ui_prefab`，把 `ui_structure.json` 与切图组装成使用标准 UGUI 组件的 Prefab。
-也可以只安装 CoplayDev 的 `unity-mcp`，调用 `image_to_ui_build_prefab`；两个入口使用同一构建器。
+这是一个仅包含 Editor 代码的 Unity UPM 包。配合 CoplayDev 的 `unity-mcp`，
+调用 `image_to_ui_build_prefab` 把 `ui_structure.json` 与切图组装成使用标准 UGUI
+组件的 Prefab。旧的 UnityAgentBridge 适配器仍保留在源码中，可选用同一构建器；
+当前项目的文档和流程以 `unity-mcp` 为准。
 
 **生成物没有自定义运行时脚本、运行时 JSON 解析器或导入器资源表依赖。**
 显隐状态会成为实际的 GameObject 分组，默认只激活当前状态。业务控制由开发者实现。
@@ -30,16 +31,20 @@
 ### 使用 unity-mcp
 
 在目标 Unity 工程安装 `com.coplaydev.unity-mcp` 和本仓库的 `Unity/` 包，等待编译完成。
-开发本仓库时，可在 Package Manager 通过 **Add package from disk** 选择本仓库
-`Unity/package.json`；正式项目可使用下面的 Git URL：
+在 Package Manager 中选择 **Add package from git URL**，依次添加：
 
-```text
-https://github.com/XuToWei/Image-To-UI.git?path=Unity
-```
+1. `https://github.com/CoplayDev/unity-mcp.git?path=/MCPForUnity#main`
+2. `https://github.com/osunkingo/Image-To-UI.git?path=Unity`
+
+第一个地址来自 [CoplayDev 官方安装说明](https://github.com/CoplayDev/unity-mcp#quickstart)；
+第二个地址与本仓库的 `origin` 一致。前者将 MCP 包放在 `MCPForUnity/`，后者
+将本包放在 `Unity/`。
+开发本仓库时，可在 Package Manager 通过 **Add package from disk** 选择本仓库
+`Unity/package.json`。
 
 连接 Unity MCP 后读取 `mcpforunity://project/info` 核对目标工程，再读取
 `mcpforunity://custom-tools`，确认 `image_to_ui_build_prefab` 已注册。
-先完成 `ui_structure.json` 的 check 和 finalize，然后调用：
+先完成 `ui_structure.json` 的 check 和 finalize，然后通过 `execute_custom_tool` 调用：
 
 ```json
 {
@@ -55,29 +60,11 @@ https://github.com/XuToWei/Image-To-UI.git?path=Unity
 
 可用 `image-to-ui/scripts/workspace.py build-requests --backend mcp --manifest ui_workspace.json`
 生成已完成页面的请求清单 `workspace_mcp_build_requests.json`。该命令不会自己调用 Unity；
-每条请求的 `params` 对应 MCP 自定义工具的 `parameters`。目标 Prefab 已存在时，
+每条请求的 `params` 对应 `execute_custom_tool` 的 `parameters`，`tool_name` 使用 `image_to_ui_build_prefab`。目标 Prefab 已存在时，
 工作区会跳过请求；直接调用工具也会返回 `UI_PREFAB_EXISTS`，除非显式允许覆盖。
 MCP 工具的 `assetsPath` 是一个目录；请将共同素材和页面素材放在它的子目录中。
 构建后检查返回的 `prefabPath`、`resourceUsage`、`stateObjects` 和 `warnings`，
 再在 Unity 中打开 Prefab，核对布局与引用。功能按钮和数据绑定仍由游戏代码接入。
-
-### 使用 UnityAgentBridge
-
-通过 GitHub 安装，确保本机已安装 Git 且 Unity 能调用它。
-本仓库地址为 `https://github.com/XuToWei/Image-To-UI.git`，Unity 包位于
-`Unity/` 子目录，因此 Package Manager 使用的完整地址为：
-
-```text
-https://github.com/XuToWei/Image-To-UI.git?path=Unity
-```
-
-### Package Manager 安装
-
-1. 打开目标 Unity 工程的 Package Manager，选择 **Add package from git URL**。
-2. 输入 `https://github.com/XuToWei/UnityAgentBridge.git?path=Unity`，等待依赖解析与编译。
-   已安装 Bridge 时跳过这一步。
-3. 再添加 `https://github.com/XuToWei/Image-To-UI.git?path=Unity`。
-4. 等待编译结束，确认 Console 无编译错误。uGUI 和 Newtonsoft.Json 由包依赖解析。
 
 ### manifest 安装
 
@@ -87,31 +74,38 @@ https://github.com/XuToWei/Image-To-UI.git?path=Unity
 ```json
 {
   "dependencies": {
-    "me.xw.unityagentbridge": "https://github.com/XuToWei/UnityAgentBridge.git?path=Unity",
-    "me.xw.imagetoui": "https://github.com/XuToWei/Image-To-UI.git?path=Unity"
+    "com.coplaydev.unity-mcp": "https://github.com/CoplayDev/unity-mcp.git?path=/MCPForUnity#main",
+    "me.xw.imagetoui": "https://github.com/osunkingo/Image-To-UI.git?path=Unity"
   }
 }
 ```
 
-### 启用 Bridge 并检查安装
+### 连接 MCP 并检查安装
 
-保持在 Edit Mode，打开 **Window > Agent Bridge**，启用 Bridge 宿主。
-确认命令管理器的 `Prefab` 分组包含 `build_ui_prefab`，且该命令未被禁用。
-Agent 首次使用时执行 `list_commands`，以返回结果确认命令和参数 schema。
+保持在 Edit Mode，打开 **Window > MCP for Unity > Configure All Detected Clients**。
+连接后读取 `mcpforunity://project/info` 确认目标工程，再读取
+`mcpforunity://custom-tools` 确认 `image_to_ui_build_prefab` 与参数 schema。
 
 Prefab 只依赖标准 UGUI 和生成目录中的素材；生成后即使卸载本导入器，也不会出现
 本包的 Missing Script。项目仍需保留 uGUI。
 
+### 旧的 UnityAgentBridge 入口（可选）
+
+源码仍包含 `Unity/Editor/AgentBridge/` 适配器，`workspace.py` 仍支持
+`build-requests --backend bridge`。它不是 MCP 工作流的依赖。若维护旧工程，
+需另行安装兼容的 UnityAgentBridge，并以该工程实际安装版本的 `AGENT.md` 和
+`list_commands` 为准；新工程请按上节使用 `unity-mcp`。
+
 ## 生成 Prefab
 
 这是[完整运行流程](../README.zh-CN.md#完整运行流程)的第 6 步。
-Codex 完成本次 JSON 的分析与复核后，直接继续发出下面的 command/params。
+Codex 完成本次 JSON 的分析与复核后，调用下面的 MCP 自定义工具。
 `<repo>` 在调用前替换为仓库的绝对路径：
 
 ```json
 {
-  "command": "build_ui_prefab",
-  "params": {
+  "tool_name": "image_to_ui_build_prefab",
+  "parameters": {
     "structurePath": "<repo>/test/output-local/ui_structure.json",
     "assetsPath": "<repo>/test/source/sprites",
     "prefabPath": "Assets/Generated/EmberfallMainUI.prefab"
@@ -119,13 +113,13 @@ Codex 完成本次 JSON 的分析与复核后，直接继续发出下面的 comm
 }
 ```
 
-实际文件 IPC 按已安装 Bridge 的 `AGENT.md` 添加版本和全新 id，并遵守命令发现、
-单请求、原子发布和响应 ack 规则。命令在 Edit Mode 执行，不支持 batch 或 Undo。
+核对当前连接的 Unity 工程与工具注册信息后，通过 `execute_custom_tool` 将
+`parameters` 传给 `image_to_ui_build_prefab`。工具在 Edit Mode 执行，不支持 batch 或 Undo。
 
 | 参数 | 含义 |
 | --- | --- |
 | `structurePath` | 必填。JSON 的绝对路径或 Unity 工程相对路径。 |
-| `assetsPath` | 必填。单个目录字符串或非空目录字符串数组；递归查找 PNG/JPG，支持工程内外目录。 |
+| `assetsPath` | 必填。MCP 工具接收单个目录字符串，递归查找 PNG/JPG，支持工程内外目录。旧 Bridge 入口另支持非空目录字符串数组。 |
 | `prefabPath` | 必填。`Assets/` 下的 `.prefab` 路径，缺失的父目录会创建。 |
 | `fontMap` | 可选。JSON 的 `fontFamily` 字符串到字体文件路径的映射。 |
 | `defaultFontPath` | 可选。指定字体缺失时使用的 TTF/OTF 文件。 |
@@ -141,16 +135,15 @@ Codex 完成本次 JSON 的分析与复核后，直接继续发出下面的 comm
 ### 多个切图目录
 
 多项目、多页面可先使用仓库的 `image-to-ui/scripts/workspace.py` 和
-`examples/ui_workspace.example.json` 管理独立的分析输出。其 `build-requests`
-生成逐页面的 `build_ui_prefab` 请求队列；Agent 仍须先实时执行
-`list_commands`，确认当前 Unity 工程与请求中的 `unityProject` 相同，
-再按 Bridge 的单请求协议逐条发送。跨项目批量请求要求每个项目填写
+`examples/ui_workspace.example.json` 管理独立的分析输出。加 `--backend mcp`
+生成逐页面的 `image_to_ui_build_prefab` 请求队列；先确认当前 Unity 工程与
+请求中的 `unityProject` 相同，并检查 `mcpforunity://custom-tools`，再逐条通过 `execute_custom_tool` 调用。跨项目批量请求要求每个项目填写
 `unityProject`。队列的 `overwrite` 固定为 `false`，配置工程路径时还会
 预先跳过已存在的目标。
 功能 UI 的动作、跳转和数据键写入各页面 `integration_contract.json`，由
 游戏运行时代码接入；本 Editor-only 导出命令不生成业务控制器。
 
-原来的单目录字符串仍然有效，也可直接传目录数组：
+以下目录数组写法仅适用于旧的 UnityAgentBridge 入口：
 
 ```json
 {
@@ -165,7 +158,7 @@ Codex 完成本次 JSON 的分析与复核后，直接继续发出下面的 comm
 都有相同的 `buttons/confirm.png`，命令报歧义错误，不按目录顺序静默覆盖；请调整
 目录范围或使用共同上级目录加更完整的相对路径。空数组、非字符串项和不存在的
 目录会在创建输出前报错。字体查找也遍历所提供的目录；同名字体可用 `fontMap`
-指定确切文件。此数组能力属于 Unity 导出命令，Python 分析工作流仍使用其独立参数。
+指定确切文件。此数组能力属于旧的 Bridge 命令，Python 分析工作流仍使用其独立参数。
 
 ### 字体映射与重新生成
 
@@ -285,8 +278,8 @@ states.Find("selected").gameObject.SetActive(true);
 | 现象 | 处理 |
 | --- | --- |
 | Git 安装提示仓库根目录找不到 `package.json` | 使用带 `?path=Unity` 的完整 UPM 地址。 |
-| `AgentBridge.Editor` 程序集缺失或接口编译失败 | 先安装兼容的 UnityAgentBridge，确认 Console 编译通过，再发现命令。 |
-| `list_commands` 没有 `build_ui_prefab` | 检查是否安装了本包、Unity 是否完成编译、Bridge 是否启用，以及命令是否被禁用。 |
+| `MCPForUnity.Editor` 程序集缺失或接口编译失败 | 按上文安装兼容的 `unity-mcp`，确认 Console 编译通过，再检查自定义工具。 |
+| `mcpforunity://custom-tools` 没有 `image_to_ui_build_prefab` | 检查是否安装了本包、Unity 是否完成编译、MCP 是否已连接，以及目标工程是否正确。 |
 | 返回 `UI_EDIT_MODE_REQUIRED` | 退出 Play Mode 后调用。 |
 | 返回 `UI_PREFAB_EXISTS` | 更换输出路径，或在需要覆盖时传 `overwrite: true`。 |
 | 返回 `UI_INVALID_STRUCTURE` | 根据错误信息检查路径、JSON 必填字段、素材重名和组件声明；素材重名时使用相对根目录的完整路径。 |

@@ -22,8 +22,12 @@ designs on one labeled sheet. Use `report` to check functional handoff
 paths and exact-byte shared-asset candidates; use `build-requests` to emit
 non-overwriting Unity build requests. Cross-project build queues require each
 project's `unityProject`; verify the active Editor matches each request before
-sending it. The workspace layer does not replace
-the per-page `ui_structure.json`, visual review, or Bridge discovery.
+sending it. Use `build-requests --backend mcp` for the project's current Unity
+workflow; discover `image_to_ui_build_prefab` in the connected Editor. The
+workspace layer does not replace the per-page `ui_structure.json` or visual review.
+Name new source images according to the repository's
+[`docs/asset-naming.md`](../docs/asset-naming.md); preserve existing source
+names until their references are deliberately migrated.
 
 Require:
 
@@ -314,7 +318,7 @@ sets workflow status to `completed`.
 ## Deliver
 
 When a Unity Prefab is requested, read [references/unity.md](references/unity.md)
-for the optional UnityAgentBridge exporter and target-engine verification.
+for the `unity-mcp` exporter and target-engine verification.
 
 Keep `ui_structure.json`, `comparison.png`, `reconstruction.png`, render/audit
 reports, review-risk report/evidence, `alignment_review.md`,

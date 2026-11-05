@@ -3,9 +3,9 @@
 [English](README.md) · [完整运行流程](#完整运行流程) · [Unity 命令参考](Unity/README.md)
 
 使用 Codex 将 UI 效果图和切图转换为经过复核的 `ui_structure.json`，再通过
-UnityAgentBridge 组装成 Unity UGUI Prefab。分析、校验与导入在同一项任务中连续完成。
+CoplayDev `unity-mcp` 组装成 Unity UGUI Prefab。分析、校验与导入在同一项任务中连续完成。
 
-也支持 CoplayDev 的 `unity-mcp`。先在 Unity 安装 `unity-mcp` 和本仓库的 `Unity/` 包，
+先在 Unity 安装 `unity-mcp` 和本仓库的 `Unity/` 包，
 完成同样的 prepare、结构编写、check 和 finalize 后运行：
 
 ```bash
@@ -14,7 +14,7 @@ python -B image-to-ui/scripts/workspace.py build-requests --backend mcp --manife
 
 打开生成的 `workspace_mcp_build_requests.json`，确认 `unityProject` 对应当前连接的 Unity 工程。
 让 Codex 读取 MCP 的 `mcpforunity://custom-tools`，确认存在 `image_to_ui_build_prefab`，
-然后把该页面的 `params` 交给这个工具。工具仅在 Edit Mode 构建 Prefab，默认拒绝覆盖已有目标。
+然后通过 `execute_custom_tool(tool_name="image_to_ui_build_prefab", parameters=...)` 发送该页面的 `params`。工具仅在 Edit Mode 构建 Prefab，默认拒绝覆盖已有目标。
 `assetsPath` 在 MCP 工具中传一个目录；共享素材可放在这个目录的子目录中。
 详细安装和参数见 [Unity 导入器参考](Unity/README.md#使用-unity-mcp)。
 
@@ -23,7 +23,9 @@ python -B image-to-ui/scripts/workspace.py build-requests --backend mcp --manife
 
 ## 多项目与多页面工作区
 
-多个游戏、多个页面使用一个 `ui_workspace.json` 管理；每页仍独立分析、复核并生成一个 Prefab。单页面命令继续可用。以下命令均在**仓库根目录**执行，使用 Python 3.10+；首次运行先安装 `python -m pip install pillow numpy`。
+多个游戏、多个页面使用一个 `ui_workspace.json` 管理；每页仍独立分析、复核并生成一个 Prefab。单页面命令继续可用。以下命令均在**仓库根目录**执行，使用 Python 3.10+；首次运行先安装 `python -m pip install pillow numpy`。若 macOS 环境没有 `python` 命令，请把下文命令中的 `python` 换成 `python3`。
+
+新增公共和模块切图请参考 [UI 图像资源命名规范](docs/asset-naming.md)：统一使用短缩写，同一游戏内文件名唯一。`hund/market` 目前仍使用按素材类型分类的旧目录和文件名；规范说明了现状及渐进迁移方式，不要求重命名已有切图。
 
 ### 从你的 `market` 页面开始：最小可运行示例
 
@@ -69,10 +71,10 @@ python -B image-to-ui/scripts/workspace.py prepare --manifest ui_workspace.json 
 ```bash
 python -B image-to-ui/scripts/workspace.py check --manifest ui_workspace.json --project hund --page market
 python -B image-to-ui/scripts/workspace.py finalize --manifest ui_workspace.json --project hund --page market
-python -B image-to-ui/scripts/workspace.py build-requests --manifest ui_workspace.json --project hund --page market
+python -B image-to-ui/scripts/workspace.py build-requests --backend mcp --manifest ui_workspace.json --project hund --page market
 ```
 
-确认 `hund/output-workspace/market/completion_report.json` 中 `"complete": true`。最后一条只生成 `workspace_build_requests.json`，**不会自己打开 Unity 或创建 Prefab**；让 Codex 按 UnityAgentBridge 的 `AGENT.md` 和 `list_commands` 核实 `build_ui_prefab`，并将请求发送给当前打开的 `/Volumes/work/myself/testui`。在 Unity 中查看新 Prefab 的布局与素材引用。若之前已完成的 `hund/output-local` 想继续使用，请保持原来的单页面流程；不要把它当成新工作区的输出目录重复执行 `prepare`。
+确认 `hund/output-workspace/market/completion_report.json` 中 `"complete": true`。最后一条只生成 `workspace_mcp_build_requests.json`，**不会自己打开 Unity 或创建 Prefab**；让 Codex 核对 `mcpforunity://project/info`、从 `mcpforunity://custom-tools` 确认 `image_to_ui_build_prefab`，再通过 `execute_custom_tool` 把请求发送给当前打开的 Unity 工程。在 Unity 中查看新 Prefab 的布局与素材引用。若之前已完成的 `hund/output-local` 想继续使用，请保持原来的单页面流程；不要把它当成新工作区的输出目录重复执行 `prepare`。
 
 ### 同一个游戏新增功能界面：例如背包
 
@@ -96,13 +98,13 @@ python -B image-to-ui/scripts/workspace.py overview --manifest ui_workspace.json
 python -B image-to-ui/scripts/workspace.py prepare --manifest ui_workspace.json --project hund --page inventory
 ```
 
-接下来只为 `inventory` 编写 `ui_structure.json`，执行 `check`、视觉复核和 `finalize`，最后用 `build-requests --manifest ui_workspace.json --project hund --page inventory` 生成它的 Unity 导出请求。`--page inventory` 不会重新处理已完成的 `market`。如果两个页面要用同一张图标，先人工确认它们确实应共用，再放到 `hund/source/sprites/Common/`，把 `hund` 的 `commonAssetDirs` 设为 `["Common"]` 并更新两个页面的结构引用。素材变更后，要对受影响页面重新运行 `prepare`、`check`、复核和 `finalize`。
+接下来只为 `inventory` 编写 `ui_structure.json`，执行 `check`、视觉复核和 `finalize`，最后用 `build-requests --backend mcp --manifest ui_workspace.json --project hund --page inventory` 生成它的 Unity 导出请求。`--page inventory` 不会重新处理已完成的 `market`。如果两个页面要用同一张图标，先人工确认它们确实应共用，再放到 `hund/source/sprites/Common/`，把 `hund` 的 `commonAssetDirs` 设为 `["Common"]` 并更新两个页面的结构引用。素材变更后，要对受影响页面重新运行 `prepare`、`check`、复核和 `finalize`。
 
 如果所谓“功能项”只是**现有市场页面中的一个新按钮或数值**，不需要新增页面。修改 `market` 的 `ui_structure.json` 添加对应节点，并在 `market` 页的 `functional` 中配置按钮动作或文字数据键；若按钮打开背包，再配置 `navigation` 指向 `inventory`。之后对 `market` 重新 `check`、复核、`finalize`。游戏运行时代码仍需连接点击事件、数据和页面切换，详见下方“处理公共素材和功能 UI”。
 
 ### 再建一个游戏项目：`newgame`
 
-如果是**另一款游戏、另一个 Unity 工程**，先在 Unity Hub 创建或打开新工程，确认工程内有 `Assets/`，并按下文“准备环境并安装 Unity 包”安装 UnityAgentBridge 与 Image-To-UI。把这款游戏的效果图和独立切图放在自己的目录，例如：
+如果是**另一款游戏、另一个 Unity 工程**，先在 Unity Hub 创建或打开新工程，确认工程内有 `Assets/`，并按下文“准备环境并安装 Unity 包”安装 `unity-mcp` 与 Image-To-UI。把这款游戏的效果图和独立切图放在自己的目录，例如：
 
 ```text
 newgame/
@@ -139,7 +141,7 @@ python -B image-to-ui/scripts/workspace.py overview --manifest ui_workspace.json
 python -B image-to-ui/scripts/workspace.py prepare --manifest ui_workspace.json --project newgame --page home
 ```
 
-`overview` 会同时显示两个游戏的设计图；想只看新游戏，加 `--project newgame`。之后按上一节对 `home` 页面生成结构、执行 `check` 与 `finalize`。导出时使用 `build-requests --manifest ui_workspace.json --project newgame`，先确认 Unity 当前打开的是 `newgame` 的工程，再发送请求。`hund` 和 `newgame` 的分析输出与 Prefab 分别属于各自工程；同一游戏内可整理公共素材，不会把不同游戏的切图自动合并。
+`overview` 会同时显示两个游戏的设计图；想只看新游戏，加 `--project newgame`。之后按上一节对 `home` 页面生成结构、执行 `check` 与 `finalize`。导出时使用 `build-requests --backend mcp --manifest ui_workspace.json --project newgame`，先确认 Unity 当前打开的是 `newgame` 的工程，再发送请求。`hund` 和 `newgame` 的分析输出与 Prefab 分别属于各自工程；同一游戏内可整理公共素材，不会把不同游戏的切图自动合并。
 
 ### 1. 准备效果图、切图和清单
 
@@ -226,21 +228,21 @@ python -B image-to-ui/scripts/workspace.py report --manifest ui_workspace.json
 ### 5. 生成 Unity Prefab
 
 ```bash
-python -B image-to-ui/scripts/workspace.py build-requests --manifest ui_workspace.json --project emberfall
+python -B image-to-ui/scripts/workspace.py build-requests --backend mcp --manifest ui_workspace.json --project emberfall
 ```
 
-命令只写出 `workspace_build_requests.json`，**不会直接调用 Unity**。请求只包含已经完成且结构未变的页面，`overwrite` 固定为 `false`；已存在的目标 Prefab 会被跳过。让 Codex 读取 UnityAgentBridge 的 `AGENT.md`，通过 `list_commands` 确认 `build_ui_prefab` 可用，再核对当前打开的 Unity 工程与每条请求的 `unityProject`，逐条发送请求并在 Unity 中检查 Prefab、布局及素材引用。切换游戏时先切换对应 Unity 工程。公共素材放在 Unity `Assets/` 内且由各页面直接引用时可共享同一 Unity 资源；外部素材可能被复制进各 Prefab 的资源目录。
+命令只写出 `workspace_mcp_build_requests.json`，**不会直接调用 Unity**。请求只包含已经完成且结构未变的页面，`overwrite` 固定为 `false`；已存在的目标 Prefab 会被跳过。核对 `mcpforunity://project/info` 与 `mcpforunity://custom-tools` 后，通过 `execute_custom_tool(tool_name="image_to_ui_build_prefab", parameters=...)` 发送每条请求的 `params`，再在 Unity 中检查 Prefab、布局及素材引用。切换游戏时先切换对应 Unity 工程。公共素材放在 Unity `Assets/` 内且由各页面直接引用时可共享同一 Unity 资源；外部素材可能被复制进各 Prefab 的资源目录。旧的 UnityAgentBridge 适配器仍可通过 `--backend bridge` 使用。
 
 ## 完整运行流程
 
 从效果图开始，把下面整条任务交给 Codex：生成结构、校验复核，再通过
-UnityAgentBridge 组装 Prefab。开发者最后在 Unity 中检查效果并接入业务。
+`unity-mcp` 组装 Prefab。开发者最后在 Unity 中检查效果并接入业务。
 
 ```mermaid
 flowchart LR
     A["效果图、切图、字体"] --> B["Codex：测量并编写 UI JSON"]
     B --> C["渲染、复核、finalize"]
-    C --> D["UnityAgentBridge：build_ui_prefab"]
+    C --> D["unity-mcp：image_to_ui_build_prefab"]
     D --> E["UGUI Prefab 和素材"]
     E --> F["Unity 检查与业务接线"]
 ```
@@ -250,7 +252,7 @@ flowchart LR
 准备 Git、Python 3.10+ 和目标 Unity 2022.3+ 工程。在希望保存仓库的目录执行：
 
 ```bash
-git clone https://github.com/XuToWei/Image-To-UI.git
+git clone https://github.com/osunkingo/Image-To-UI.git
 ```
 
 Codex 从克隆后的仓库读取 skill、脚本和示例。Unity 包使用下面的 GitHub 地址安装。
@@ -266,25 +268,25 @@ Windows 上也可使用 `py` 代替 `python`。
 确保 Unity 能调用 Git。在目标工程的 Package Manager 中选择
 **Add package from git URL**，依次添加：
 
-1. `https://github.com/XuToWei/UnityAgentBridge.git?path=Unity`
-2. `https://github.com/XuToWei/Image-To-UI.git?path=Unity`
+1. `https://github.com/CoplayDev/unity-mcp.git?path=/MCPForUnity#main`
+2. `https://github.com/osunkingo/Image-To-UI.git?path=Unity`
 
-两个包的 `package.json` 都位于仓库的 `Unity/` 子目录，因此 UPM 地址需要
-`?path=Unity`。已安装 Bridge 时只添加第二个包。也可将下面两项合并到工程的
+第二个地址指向本仓库的 `Unity/package.json`。也可将下面两项合并到工程的
 `Packages/manifest.json`，保留其他依赖：
 
 ```json
 {
   "dependencies": {
-    "me.xw.unityagentbridge": "https://github.com/XuToWei/UnityAgentBridge.git?path=Unity",
-    "me.xw.imagetoui": "https://github.com/XuToWei/Image-To-UI.git?path=Unity"
+    "com.coplaydev.unity-mcp": "https://github.com/CoplayDev/unity-mcp.git?path=/MCPForUnity#main",
+    "me.xw.imagetoui": "https://github.com/osunkingo/Image-To-UI.git?path=Unity"
   }
 }
 ```
 
 等待编译结束且 Console 无编译错误。保持 Unity 在 Edit Mode，打开
-**Window > Agent Bridge**，启用宿主，确认 `Prefab` 分组中的
-`build_ui_prefab` 未被禁用。保持目标工程打开。
+**Window > MCP for Unity > Configure All Detected Clients** 完成连接，
+从 `mcpforunity://custom-tools` 确认 `image_to_ui_build_prefab` 已注册。
+保持目标工程打开。
 
 ### 2. 确定本次输入和输出
 
@@ -322,8 +324,8 @@ Codex 会连续执行后面的分析、校验和导入步骤，命令示例用�
 目标 Unity 工程：<填写 Unity 工程绝对路径>
 Prefab 输出：Assets/Generated/EmberfallMainUI.prefab
 
-先读取目标工程中已安装 UnityAgentBridge 的 AGENT.md，通过 list_commands
-确认 build_ui_prefab 可用。
+先读取 mcpforunity://project/info 核对目标 Unity 工程，从
+mcpforunity://custom-tools 确认 image_to_ui_build_prefab 可用。
 
 按 skill 执行 prepare，测量效果图，编写 ui_structure.json。
 处理层级、原生锚点/适配约束、状态变体、进度条和滚动区域。
@@ -331,7 +333,7 @@ Prefab 输出：Assets/Generated/EmberfallMainUI.prefab
 完成逐元素审查和适用的组件场景复核，执行 finalize，
 确认本次 completion_report.json 的 complete 为 true。
 
-接着通过 UnityAgentBridge 调用 build_ui_prefab，
+接着通过 unity-mcp 的 execute_custom_tool 调用 image_to_ui_build_prefab，
 structurePath 必须指向本次输出目录的 ui_structure.json，
 assetsPath 使用上述切图根目录。
 只组装原生 UGUI 组件和资源，将所有已声明状态拼成显隐分组，
@@ -381,15 +383,15 @@ python -B image-to-ui/scripts/workflow.py finalize --output test/output-local
 `completion_report.json` 中的 `"complete": true` 表示原图分析阶段完成。
 接下来继续生成 Unity Prefab。该标记不代表已经生成或检查了 Unity 资产。
 
-### 6. Codex 通过 Bridge 生成 Prefab
+### 6. Codex 通过 unity-mcp 生成 Prefab
 
-Codex 按已发现的 Bridge schema 调用 `build_ui_prefab`。这里接收的 JSON
+Codex 按已发现的 MCP 工具 schema 调用 `image_to_ui_build_prefab`。这里接收的 JSON
 正是上一步生成并复核的文件。`<repo>` 在调用前由 Codex 替换为仓库的绝对路径：
 
 ```json
 {
-  "command": "build_ui_prefab",
-  "params": {
+  "tool_name": "image_to_ui_build_prefab",
+  "parameters": {
     "structurePath": "<repo>/test/output-local/ui_structure.json",
     "assetsPath": "<repo>/test/source/sprites",
     "prefabPath": "Assets/Generated/EmberfallMainUI.prefab"
@@ -397,13 +399,13 @@ Codex 按已发现的 Bridge schema 调用 `build_ui_prefab`。这里接收的 J
 }
 ```
 
-这是 command/params 部分；版本、全新 id、请求发布和响应 ack 由 Codex 按
-Bridge 的 `AGENT.md` 处理。需要覆盖已有目标时显式传 `overwrite: true`；
+核对当前连接的 Unity 工程与工具注册信息后，通过 `execute_custom_tool` 将
+`parameters` 交给项目自定义工具。
+需要覆盖已有目标时显式传 `overwrite: true`；
 字体路径不同可使用 `fontMap`，详见 [Unity 参数参考](Unity/README.md#生成-prefab)。
 
-`assetsPath` 同时兼容单目录字符串和目录字符串数组，例如
-`["Assets/UI/Common", "Assets/UI/Feature"]`。重叠目录会去重，同名或相对路径
-歧义会明确报错，不会静默选择第一个目录。
+MCP 工具的 `assetsPath` 接收单个目录字符串；公共素材和页面素材可放在该目录下的
+不同子目录。旧的 UnityAgentBridge 入口还支持目录数组。
 
 Unity 在编辑器中创建原生 UGUI 层级，优先引用工程内已有 Sprite 和字体，
 仅将外部导入与必要派生资源放入可复用的固定资源目录，
@@ -417,7 +419,7 @@ Codex 读取返回的 `prefabPath`、`guid`、`resourceFolder`、
 
 在 Project 窗口打开生成的 Prefab，检查原始设计尺寸与目标 Game View 尺寸下的
 布局、文字、图片和裁剪。Unity 文字度量可能与 Python 预览不同；若需要修正，
-让 Codex 更新 JSON，重新完成 `check → review → finalize → build_ui_prefab`。
+让 Codex 更新 JSON，重新完成 `check → review → finalize → image_to_ui_build_prefab`。
 
 将 Prefab 拖入场景即可使用，它自带 Canvas、CanvasScaler 和 GraphicRaycaster，
 通常作为场景根对象。保留返回的资源目录，Prefab 会引用其中的素材。
@@ -450,8 +452,8 @@ Codex 读取返回的 `prefabPath`、`guid`、`resourceFolder`、
 | `measurements/` | 可选的局部放大图、像素标尺与裁剪/缩放坐标映射。 |
 | `assets/` 与 `design_grid.*` | 资源清单、联系表和网格测量数据。 |
 | Unity 工程中的目标 `.prefab` | 最终生成的可编辑 UGUI Prefab。 |
-| Bridge 返回的 `resourceFolder` / `resourceUsage` | 可选的派生资源目录（全部直接引用时为 null），以及引用、复制和复用数量。 |
-| Bridge 返回的 `stateObjects` / `warnings` | 实际状态分组路径、初始显隐和导入警告。 |
+| Unity 工具返回的 `resourceFolder` / `resourceUsage` | 可选的派生资源目录（全部直接引用时为 null），以及引用、复制和复用数量。 |
+| Unity 工具返回的 `stateObjects` / `warnings` | 实际状态分组路径、初始显隐和导入警告。 |
 
 仓库中的 `test/output` 只保留精简示例：结构 JSON、对比图、重建图、状态／尺寸
 总览和 `component_review.md`。网格、素材清单、trace、逐场景预览及本机工作流
@@ -465,7 +467,7 @@ Codex 读取返回的 `prefabPath`、`guid`、`resourceFolder`、
 - 效果图：[`test/source/design/emberfall-ui-mockup.png`](test/source/design/emberfall-ui-mockup.png)
 - 切图目录：[`test/source/sprites/`](test/source/sprites/)
 - 最终结构：[`test/output/ui_structure.json`](test/output/ui_structure.json)
-- 完成报告：[`test/output/completion_report.json`](test/output/completion_report.json)
+- 完成报告：完整本地流程运行时生成（`test/output-local/completion_report.json`）。
 
 [![Emberfall 效果图与重建结果对比](test/output/comparison.png)](test/output/comparison.png)
 
@@ -482,10 +484,8 @@ Codex 读取返回的 `prefabPath`、`guid`、`resourceFolder`、
 效果图中也包含未提供独立切图的内容。角色、头像和字体替代等限制会明确
 记录在 `metadata.approximations`，而不是隐藏在结果或说明文字中。
 
-最终审查还通过局部证据修正了右下角
-[`ENTER` 按钮](test/output/target_root_enter_button.png)，以及两条 QUEST
-背景（[火焰任务](test/output/target_root_quest_panel_quest_list_fire_quest_background.png)、
-[冰霜任务](test/output/target_root_quest_panel_quest_list_frost_quest_background.png)）。
+最终审查还通过局部证据修正了右下角 `ENTER` 按钮和两条 QUEST 背景。
+这些局部证据图由完整本地流程生成，不包含在仓库精简案例中。
 
 ## 主要能力
 

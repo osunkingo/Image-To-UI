@@ -2,27 +2,26 @@
 
 Use when the user asks for a Unity Prefab from an existing `ui_structure.json`
 or includes Prefab assembly in the reconstruction task. The optional repository
-`Unity/` package supplies the `build_ui_prefab` UnityAgentBridge command.
+`Unity/` package supplies the `image_to_ui_build_prefab` custom tool for
+CoplayDev `unity-mcp`. The older UnityAgentBridge adapter remains optional.
 
 The exporter is **Editor-only**. Generate native UGUI objects and ordinary
 project assets, with no custom runtime controller, embedded JSON interpreter,
 or exporter-specific resource registry.
 
-1. Locate the target Unity project and read its installed Bridge's `AGENT.md`.
-   Discover the command and parameter schema with live `list_commands`.
-2. If unavailable, check installation from
-   `https://github.com/XuToWei/Image-To-UI.git?path=Unity` through Unity Package
+1. Locate the target Unity project and read `mcpforunity://project/info` to
+   confirm the connected Editor. Discover the tool and parameter schema from
+   `mcpforunity://custom-tools`. With project-scoped custom tools enabled, call
+   `execute_custom_tool(tool_name="image_to_ui_build_prefab", parameters={...})`.
+2. If unavailable, check installation of CoplayDev `unity-mcp` from
+   `https://github.com/CoplayDev/unity-mcp.git?path=/MCPForUnity#main` and this package from
+   `https://github.com/osunkingo/Image-To-UI.git?path=Unity` through Unity Package
    Manager. The suffix selects the directory containing `package.json`.
    Installation details are in `Unity/README.md`; the Unity directory is
    optional and is not part of a standalone copy of this analysis skill.
-3. Supply the structure, sliced-asset root(s), and an `Assets/` Prefab destination.
-   `assetsPath` accepts either the existing single directory string or a
-   non-empty array of directory strings, for example
-   `["Assets/UI/Common", "Assets/UI/Feature"]`. Overlapping roots deduplicate
-   the same file. Basenames must be unique across all roots; use unique relative
-   paths to disambiguate. If the same relative path exists under different roots,
-   adjust the roots or use a common parent with longer paths; no root silently
-   overrides another. Font lookup also searches each directory.
+3. Supply the structure, one sliced-asset root directory string, and an `Assets/`
+   Prefab destination. Put shared and page assets under that root. Use unique
+   relative paths to disambiguate assets with the same basename.
    Existing full-image Sprites and fonts under Assets or registered Packages
    are referenced directly.
    A project texture without a full-image Sprite gets a Sprite asset referencing

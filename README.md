@@ -3,14 +3,15 @@
 [中文说明](README.zh-CN.md) · [Complete workflow](#complete-workflow) · [Unity command reference](Unity/README.md)
 
 Use Codex to turn a UI design and sliced assets into reviewed `ui_structure.json`,
-then assemble a Unity UGUI Prefab through UnityAgentBridge. Analysis, validation,
+then assemble a Unity UGUI Prefab through CoplayDev `unity-mcp`. Analysis, validation,
 and export run as one continuous task.
 
-CoplayDev `unity-mcp` is also supported. Install `unity-mcp` and this repository's
+Install `unity-mcp` and this repository's
 `Unity/` package in the target project, finish the same analysis and finalization,
 then generate MCP requests with `workspace.py build-requests --backend mcp`.
 Confirm the connected Unity project and discover `image_to_ui_build_prefab` in
-`mcpforunity://custom-tools` before sending each request's `params`. Existing
+`mcpforunity://custom-tools` before passing each request's `params` to
+`execute_custom_tool`. Existing
 Prefab targets are skipped; see [Unity MCP setup](Unity/README.md#使用-unity-mcp).
 
 The Prefab uses native UGUI components and generated assets. All declared states
@@ -21,6 +22,8 @@ Developers own application control; no custom runtime scripts are generated.
 
 Use a versioned `ui_workspace.json` to coordinate several games and pages while keeping the original single-page workflow. See [`examples/ui_workspace.example.json`](examples/ui_workspace.example.json). Each project declares an asset root and common asset directories; each page declares its own design, local asset directories, output folder and Prefab path. Paths are relative to the manifest except asset directory entries, which are relative to `assetRoot`.
 
+Use the [UI asset naming convention](docs/asset-naming.md) for new shared and page-specific source images. It defines short scope, type, and state abbreviations and keeps filenames unique within each game for later AssetBundle packaging. The existing `hund/market` sprites still use type-based directories and older names; the convention documents a gradual migration and does not require renaming them.
+
 ```bash
 python -B image-to-ui/scripts/workspace.py validate --manifest ui_workspace.json
 python -B image-to-ui/scripts/workspace.py overview --manifest ui_workspace.json
@@ -28,12 +31,12 @@ python -B image-to-ui/scripts/workspace.py prepare --manifest ui_workspace.json 
 python -B image-to-ui/scripts/workspace.py check --manifest ui_workspace.json --project emberfall --page market
 python -B image-to-ui/scripts/workspace.py finalize --manifest ui_workspace.json --project emberfall --page market
 python -B image-to-ui/scripts/workspace.py report --manifest ui_workspace.json
-python -B image-to-ui/scripts/workspace.py build-requests --manifest ui_workspace.json
+python -B image-to-ui/scripts/workspace.py build-requests --backend mcp --manifest ui_workspace.json
 ```
 
 `overview` creates `workspace_overview.png` and a JSON page index beside the manifest, showing all selected designs together before decomposition. The coordinator runs the existing analysis workflow independently for each page. It builds a page-scoped symlink view of common and local art in `.image-to-ui-cache`. `report` identifies exact-byte shared assets referenced by multiple pages and validates optional functional contracts: button action IDs, button navigation targets, and text data keys. It writes `integration_contract.json` for developers; it does not infer gameplay behavior. States, progress and scroll still belong in each page's `ui_structure.json`.
 
-`build-requests` emits safe `build_ui_prefab` requests for completed pages only, never overwrites an existing Prefab, and leaves UnityAgentBridge transport to the agent. Each request identifies its Unity project; a cross-project batch requires `unityProject` for every selected project. Confirm the active Unity Editor matches that path before sending each request. Put truly shared Unity art under `Assets/` and reference it directly from each page; external art can be copied into each generated Prefab's resource folder. The sample manifest uses the repository's single test design in several illustrative slots; replace those paths with real page designs.
+`build-requests --backend mcp` emits safe `image_to_ui_build_prefab` requests for completed pages only, never overwrites an existing Prefab, and leaves MCP tool calls to the agent. Each request identifies its Unity project; a cross-project batch requires `unityProject` for every selected project. Confirm the active Unity Editor matches that path before sending each request. Put truly shared Unity art under `Assets/` and reference it directly from each page; external art can be copied into each generated Prefab's resource folder. The sample manifest uses the repository's single test design in several illustrative slots; replace those paths with real page designs.
 
 ### How to use a workspace
 
@@ -42,21 +45,21 @@ python -B image-to-ui/scripts/workspace.py build-requests --manifest ui_workspac
 3. Run `validate`, then `overview` to compare all page designs. Run `prepare` with `--project GAME` and optionally `--page PAGE`. Without a project filter, commands select all games. The coordinator creates a page-specific `.image-to-ui-cache` asset view without moving source sprites.
 4. For **each page**, write `ui_structure.json` in that page's `output` directory using the grid and asset inventory produced by `prepare`. `prepare` does not generate the structure. Run `check`, review `comparison.png`, `reconstruction.png`, element and risk views, and repeat after corrections. Preview alternate sizes, states, progress, and scroll where applicable. Complete `alignment_review.md` and any needed `component_review.md`, then run `finalize`. The page is exportable only when `completion_report.json` contains `"complete": true` and the structure has not changed since finalization. Follow [`image-to-ui/SKILL.md`](image-to-ui/SKILL.md) for the full review protocol.
 5. Run `report` to inspect `workspace_report.json`. It identifies assets with identical bytes used on multiple pages **within the same game**. Review visually similar files yourself; the tool does not merge them. After moving confirmed shared art into the common directory and updating references, rerun `prepare`, `check`, review, and `finalize` for affected pages.
-6. Run `build-requests` to write `workspace_build_requests.json`. This command does **not** call Unity. Read UnityAgentBridge's `AGENT.md`, confirm `build_ui_prefab` with `list_commands`, match the active Unity project to each request's `unityProject`, then send requests one at a time and inspect the resulting Prefabs. Existing Prefab targets are skipped and `overwrite` is always `false`.
+6. Run `build-requests --backend mcp` to write `workspace_mcp_build_requests.json`. This command does **not** call Unity. Check `mcpforunity://project/info` and discover `image_to_ui_build_prefab` in `mcpforunity://custom-tools`, then pass each request's `params` to `execute_custom_tool(tool_name="image_to_ui_build_prefab", parameters=...)` when project-scoped custom tools are enabled. Match the active Unity project to each request's `unityProject`, send requests one at a time, and inspect the resulting Prefabs. Existing Prefab targets are skipped and `overwrite` is always `false`. The older UnityAgentBridge adapter remains available with `--backend bridge`.
 
 The optional page `functional` object maps button paths to action IDs (`actions`), button paths to page IDs in the same game (`navigation`), and text paths to data keys (`bindings`). `report` validates these paths against `ui_structure.json` and writes each page's `integration_contract.json`. Connect the behavior in your game's runtime code; the Prefab exporter does not implement game rules. See the [Chinese walkthrough](README.zh-CN.md#多项目与多页面工作区) for a field table and example contract.
 
 ## Complete workflow
 
 Give Codex the complete task: analyze the design, generate and review the
-structure, then use UnityAgentBridge to assemble a Prefab. Finish by inspecting
+structure, then use `unity-mcp` to assemble a Prefab. Finish by inspecting
 the Unity result and wiring application behavior.
 
 ```mermaid
 flowchart LR
     A["Design, sprites, fonts"] --> B["Codex: measure and author UI JSON"]
     B --> C["Render, review, finalize"]
-    C --> D["UnityAgentBridge: build_ui_prefab"]
+    C --> D["unity-mcp: image_to_ui_build_prefab"]
     D --> E["UGUI Prefab and assets"]
     E --> F["Unity inspection and application wiring"]
 ```
@@ -67,7 +70,7 @@ Prepare Git, Python 3.10+, and a target Unity 2022.3+ project. Clone the
 repository into your preferred working directory:
 
 ```bash
-git clone https://github.com/XuToWei/Image-To-UI.git
+git clone https://github.com/osunkingo/Image-To-UI.git
 ```
 
 Codex reads the skill, scripts, and examples from this checkout.
@@ -82,29 +85,28 @@ python -m pip install pillow numpy
 On Windows, `py` can replace `python`.
 
 Ensure Git is available to Unity. In the target project's Package Manager,
-use **Add package from git URL**, in order:
+use **Add package from git URL** to install:
 
-1. `https://github.com/XuToWei/UnityAgentBridge.git?path=Unity`
-2. `https://github.com/XuToWei/Image-To-UI.git?path=Unity`
+1. `https://github.com/CoplayDev/unity-mcp.git?path=/MCPForUnity#main`
+2. `https://github.com/osunkingo/Image-To-UI.git?path=Unity`
 
-Both packages place `package.json` in the `Unity/` subdirectory, so the UPM
-URLs need `?path=Unity`. If Bridge is already installed, add only the second
-package. Alternatively,
+The second URL points to this repository's `Unity/package.json`. Alternatively,
 merge these entries into the project's `Packages/manifest.json`, retaining
 its other dependencies:
 
 ```json
 {
   "dependencies": {
-    "me.xw.unityagentbridge": "https://github.com/XuToWei/UnityAgentBridge.git?path=Unity",
-    "me.xw.imagetoui": "https://github.com/XuToWei/Image-To-UI.git?path=Unity"
+    "com.coplaydev.unity-mcp": "https://github.com/CoplayDev/unity-mcp.git?path=/MCPForUnity#main",
+    "me.xw.imagetoui": "https://github.com/osunkingo/Image-To-UI.git?path=Unity"
   }
 }
 ```
 
-Wait for compilation with no Console errors. Stay in Edit Mode, open
-**Window > Agent Bridge**, enable the host, and ensure `build_ui_prefab`
-is enabled in the `Prefab` group. Keep the target project open.
+Wait for compilation with no Console errors. Stay in Edit Mode and connect
+`unity-mcp` using **Window > MCP for Unity > Configure All Detected Clients**.
+Check `mcpforunity://custom-tools` for `image_to_ui_build_prefab` and keep the
+target project open.
 
 ### 2. Identify this run's inputs and outputs
 
@@ -148,8 +150,8 @@ Fresh analysis output: test/output-local
 Target Unity project: <absolute Unity project path>
 Prefab output: Assets/Generated/EmberfallMainUI.prefab
 
-Read the installed UnityAgentBridge AGENT.md and discover build_ui_prefab
-with list_commands before starting the reconstruction.
+Check mcpforunity://project/info for the target Unity project and discover
+image_to_ui_build_prefab in mcpforunity://custom-tools before export.
 
 Run prepare, measure the design, and author ui_structure.json.
 Represent hierarchy, anchors/responsive constraints, states, progress bars,
@@ -158,7 +160,7 @@ Use measure, target, and component preview where needed.
 Complete element and applicable component reviews, run finalize, and verify
 that this run's completion_report.json has complete: true.
 
-Then call build_ui_prefab through UnityAgentBridge using the new
+Then call image_to_ui_build_prefab through unity-mcp's execute_custom_tool using the new
 ui_structure.json from this run and the sprite root above.
 Assemble native UGUI objects and resources. Generate all declared states as
 visibility branches, with only the current state initially active.
@@ -213,16 +215,17 @@ python -B image-to-ui/scripts/workflow.py finalize --output test/output-local
 analysis stage. Continue with the Unity export; that flag does not certify
 that a Unity asset has been generated or inspected.
 
-### 6. Codex generates the Prefab through Bridge
+### 6. Codex generates the Prefab through unity-mcp
 
-Call `build_ui_prefab` using the installed command schema. Its input is the
+Call `execute_custom_tool` with `tool_name="image_to_ui_build_prefab"` using the
+discovered MCP tool schema. Its input is the
 JSON just generated and reviewed in this run. Codex replaces `<repo>` with
 the absolute repository path before calling Unity:
 
 ```json
 {
-  "command": "build_ui_prefab",
-  "params": {
+  "tool_name": "image_to_ui_build_prefab",
+  "parameters": {
     "structurePath": "<repo>/test/output-local/ui_structure.json",
     "assetsPath": "<repo>/test/source/sprites",
     "prefabPath": "Assets/Generated/EmberfallMainUI.prefab"
@@ -230,15 +233,14 @@ the absolute repository path before calling Unity:
 }
 ```
 
-This is the command/params portion. Codex follows the installed Bridge's
-`AGENT.md` for the envelope version, fresh id, publication, and response ack.
+Pass the `parameters` object to `execute_custom_tool` after verifying the connected
+Unity project and tool registration.
 Use explicit `overwrite: true` when replacing an existing asset; use `fontMap`
 for differing font paths. See the [Unity command reference](Unity/README.md#生成-prefab).
 
-`assetsPath` also accepts multiple directories, such as
-`["Assets/UI/Common", "Assets/UI/Feature"]`; the existing string form remains
-valid. Ambiguous filenames/relative paths are rejected instead of silently
-choosing the first directory.
+For the MCP tool, `assetsPath` is one directory string. Put shared and page
+assets in subdirectories of that root. The optional UnityAgentBridge adapter
+also accepts an array of directories.
 
 Unity assembles native UGUI objects and references existing project sprites and
 fonts directly. Only external imports and necessary derived assets use the
@@ -255,7 +257,7 @@ remaining issues.
 Open the generated asset in the Project window. Inspect layout, text, images,
 and clipping at the design resolution and intended Game View sizes. Unity
 font metrics can differ from Python previews. For corrections, update JSON
-and repeat `check → review → finalize → build_ui_prefab`.
+and repeat `check → review → finalize → image_to_ui_build_prefab`.
 
 Drag the Prefab into the scene. It includes Canvas, CanvasScaler, and
 GraphicRaycaster and is normally used as a scene root. Keep the returned
@@ -290,8 +292,8 @@ mapping, and troubleshooting remain in the [Unity exporter reference](Unity/READ
 | `measurements/` | Optional local design crops, pixel rulers, and crop/zoom mappings. |
 | `assets/` and `design_grid.*` | Asset inventories, contact sheets, and grid measurements. |
 | Target `.prefab` inside the Unity project | The final editable UGUI Prefab. |
-| Bridge result: `resourceFolder` / `resourceUsage` | Optional generated-resource folder (null for direct references only) and reference/copy/reuse counts. |
-| Bridge result: `stateObjects` / `warnings` | Actual state hierarchy paths, initial visibility, and import warnings. |
+| Unity tool result: `resourceFolder` / `resourceUsage` | Optional generated-resource folder (null for direct references only) and reference/copy/reuse counts. |
+| Unity tool result: `stateObjects` / `warnings` | Actual state hierarchy paths, initial visibility, and import warnings. |
 
 The checked-in `test/output` is a compact example: structure JSON, comparison,
 reconstruction, state/resolution overview images, and `component_review.md`.
@@ -306,7 +308,7 @@ This repository includes a complete example:
 - Design: [`test/source/design/emberfall-ui-mockup.png`](test/source/design/emberfall-ui-mockup.png)
 - Sliced sprites: [`test/source/sprites/`](test/source/sprites/)
 - Final structure: [`test/output/ui_structure.json`](test/output/ui_structure.json)
-- Completion report: [`test/output/completion_report.json`](test/output/completion_report.json)
+- Completion report: generated during a full local workflow run (`test/output-local/completion_report.json`).
 
 [![Emberfall design and reconstruction comparison](test/output/comparison.png)](test/output/comparison.png)
 
@@ -324,10 +326,9 @@ The mockup also contains artwork that was not supplied as a sliced sprite.
 Those limits—such as the hero/portrait layer and font substitutions—are
 recorded explicitly in `metadata.approximations` instead of being hidden.
 
-The final review used focused evidence to correct the lower-right
-[`ENTER` button](test/output/target_root_enter_button.png) and both QUEST row
-backgrounds ([fire](test/output/target_root_quest_panel_quest_list_fire_quest_background.png),
-[frost](test/output/target_root_quest_panel_quest_list_frost_quest_background.png)).
+The final review used focused evidence to correct the lower-right `ENTER`
+button and both QUEST row backgrounds. Those focused images are generated
+during a full local workflow run and are not included in the compact example.
 
 ## Highlights
 
